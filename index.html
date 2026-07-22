@@ -328,11 +328,15 @@ border-radius: 0 var(--radius) var(--radius) 0;
 
 <section class="panel">
 <h2><span class="num">02</span> 搜尋條件</h2>
-<p class="desc">地區清單為日本 47 都道府縣（對應樂天 middleClassCode）。</p>
+<p class="desc">地區清單為日本 47 都道府縣（對應樂天 middleClassCode）。填入 Application ID 並選擇地區後，細分地區會自動載入該地區的市區町村清單，範圍太大時可再選取細分地區縮小搜尋範圍。</p>
 <div class="field-grid">
 <div>
 <label for="area">地區</label>
 <select id="area"></select>
+</div>
+<div>
+<label for="subArea">細分地區（選填）</label>
+<select id="subArea"><option value="">不限</option></select>
 </div>
 <div>
 <label for="checkin">入住日期</label>
@@ -402,6 +406,69 @@ areaSel.appendChild(opt);
 });
 areaSel.value = "tokyo";
 
+
+var subAreaSel = document.getElementById("subArea");
+
+function resetSubArea() {
+subAreaSel.innerHTML = '<option value="">不限</option>';
+}
+
+function findSmallClasses(data, middleCode) {
+try {
+var largeClasses = data.areaClasses.largeClasses;
+for (var i = 0; i < largeClasses.length; i++) {
+var largeClassArr = largeClasses[i].largeClass;
+var middleWrap = largeClassArr.filter(function (x) { return x.middleClasses; })[0];
+if (!middleWrap) continue;
+var middleClasses = middleWrap.middleClasses;
+for (var j = 0; j < middleClasses.length; j++) {
+var middleClassArr = middleClasses[j].middleClass;
+var info = middleClassArr.filter(function (x) { return x.middleClassCode; })[0];
+if (info && info.middleClassCode === middleCode) {
+var smallWrap = middleClassArr.filter(function (x) { return x.smallClasses; })[0];
+return smallWrap ? smallWrap.smallClasses : [];
+}
+}
+}
+} catch (e) {}
+return [];
+}
+
+function extractSmallClassList(smallClasses) {
+return smallClasses.map(function (sc) {
+var arr = sc.smallClass;
+return arr.filter(function (x) { return x.smallClassCode; })[0];
+}).filter(Boolean);
+}
+
+function loadSubAreas() {
+var appId = document.getElementById("rakutenAppId").value.trim();
+resetSubArea();
+if (!appId) return;
+var area = areaSel.value;
+subAreaSel.disabled = true;
+var params = new URLSearchParams({ format: "json", applicationId: appId });
+var url = "https://app.rakuten.co.jp/services/api/Travel/GetAreaClass/20131024?" + params.toString();
+jsonp(url).then(function (data) {
+subAreaSel.disabled = false;
+if (data.error) return;
+var smallClasses = findSmallClasses(data, area);
+var list = extractSmallClassList(smallClasses);
+list.forEach(function (sc) {
+var opt = document.createElement("option");
+opt.value = sc.smallClassCode;
+opt.textContent = sc.smallClassName;
+subAreaSel.appendChild(opt);
+});
+}).catch(function () {
+subAreaSel.disabled = false;
+});
+}
+
+areaSel.addEventListener("change", loadSubAreas);
+document.getElementById("rakutenAppId").addEventListener("change", loadSubAreas);
+
+
 // default dates: next Friday -> Saturday
 function fmt(d) { return d.toISOString().slice(0,10); }
 var today = new Date();
@@ -469,6 +536,7 @@ var checkout = document.getElementById("checkout").value;
 var adults = document.getElementById("adults").value || "2";
 var minPrice = document.getElementById("minPrice").value;
 var maxPrice = document.getElementById("maxPrice").value;
+var subArea = subAreaSel.value;
 
 statusEl.className = "status";
 resultsSection.style.display = "none";
@@ -501,6 +569,7 @@ responseType: "large"
 if (affId) params.set("affiliateId", affId);
 if (minPrice) params.set("minCharge", minPrice);
 if (maxPrice) params.set("maxCharge", maxPrice);
+if (subArea) params.set("smallClassCode", subArea);
 
 var url = "https://app.rakuten.co.jp/services/api/Travel/VacantHotelSearch/20170426?" + params.toString();
 
@@ -567,3 +636,9 @@ statusEl.textContent = "連線失敗，請確認 Application ID 是否正確，�
 
 </body>
 </html>
+
+      
+        
+      
+      Stop Claude
+    
