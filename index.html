@@ -307,14 +307,9 @@ border-radius: 0 var(--radius) var(--radius) 0;
 <section class="panel">
 <h2><span class="num">01</span> API 設定</h2>
 <p class="desc">
-本工具直接在你的瀏覽器呼叫樂天官方 API，金鑰只留在這一頁的暫存記憶體中，不會被送到任何第三方伺服器，重新整理頁面即清除。
-免費申請樂天 Application ID：<a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener" class="sans">webservice.rakuten.co.jp</a>（約 10 分鐘）。
+樂天 API 金鑰已改為透過 Cloudflare Worker 代理呼叫與快取，不需要在此輸入，也不會出現在瀏覽器裡。以下為選填的個人化參數。
 </p>
 <div class="field-grid">
-<div>
-<label for="rakutenAppId">樂天 Application ID（必填）</label>
-<input id="rakutenAppId" type="text" placeholder="1234567890123456789">
-</div>
 <div>
 <label for="rakutenAffId">樂天 Affiliate ID（選填，用於分潤連結）</label>
 <input id="rakutenAffId" type="text" placeholder="1a2b3c4d.5e6f7g8h">
@@ -328,7 +323,7 @@ border-radius: 0 var(--radius) var(--radius) 0;
 
 <section class="panel">
 <h2><span class="num">02</span> 搜尋條件</h2>
-<p class="desc">地區清單為日本 47 都道府縣（對應樂天 middleClassCode）。填入 Application ID 並選擇地區後，細分地區會自動載入該地區的市區町村清單，範圍太大時可再選取細分地區縮小搜尋範圍。</p>
+<p class="desc">地區清單為日本 47 都道府縣（對應樂天 middleClassCode）。選擇地區後，細分地區會自動載入該地區的市區町村清單，範圍太大時可再選取細分地區縮小搜尋範圍。</p>
 <div class="field-grid">
 <div>
 <label for="area">地區</label>
@@ -408,6 +403,8 @@ areaSel.value = "tokyo";
 
 
 var subAreaSel = document.getElementById("subArea");
+var WORKER_BASE = "https://jpstay-api.tw-mywu.workers.dev";
+var areaClassDataPromise = null;
 
 function resetSubArea() {
 subAreaSel.innerHTML = '<option value="">不限</option>';
@@ -441,15 +438,18 @@ return arr.filter(function (x) { return x.smallClassCode; })[0];
 }).filter(Boolean);
 }
 
-function loadSubAreas() {
-var appId = document.getElementById("rakutenAppId").value.trim();
+function getAreaClassData() {
+if (!areaClassDataPromise) {
+areaClassDataPromise = fetch(WORKER_BASE + "/area-class").then(function (r) { return r.json(); });
+}
+return areaClassDataPromise;
+}
+
+function refreshSubAreas() {
 resetSubArea();
-if (!appId) return;
 var area = areaSel.value;
 subAreaSel.disabled = true;
-var params = new URLSearchParams({ format: "json", applicationId: appId });
-var url = "https://app.rakuten.co.jp/services/api/Travel/GetAreaClass/20131024?" + params.toString();
-jsonp(url).then(function (data) {
+getAreaClassData().then(function (data) {
 subAreaSel.disabled = false;
 if (data.error) return;
 var smallClasses = findSmallClasses(data, area);
@@ -465,8 +465,8 @@ subAreaSel.disabled = false;
 });
 }
 
-areaSel.addEventListener("change", loadSubAreas);
-document.getElementById("rakutenAppId").addEventListener("change", loadSubAreas);
+areaSel.addEventListener("change", refreshSubAreas);
+refreshSubAreas();
 
 
 // default dates: next Friday -> Saturday
@@ -527,7 +527,6 @@ return "https://www.booking.com/searchresults.html?" + params.toString();
 }
 
 searchBtn.addEventListener("click", function () {
-var appId = document.getElementById("rakutenAppId").value.trim();
 var affId = document.getElementById("rakutenAffId").value.trim();
 var bookingAid = document.getElementById("bookingAid").value.trim();
 var area = areaSel.value;
@@ -541,11 +540,6 @@ var subArea = subAreaSel.value;
 statusEl.className = "status";
 resultsSection.style.display = "none";
 
-if (!appId) {
-statusEl.className = "status error";
-statusEl.textContent = "請先填入樂天 Application ID 才能查詢。";
-return;
-}
 if (!checkin || !checkout) {
 statusEl.className = "status error";
 statusEl.textContent = "請選擇入住與退房日期。";
@@ -556,8 +550,6 @@ searchBtn.disabled = true;
 statusEl.textContent = "查詢中…";
 
 var params = new URLSearchParams({
-format: "json",
-applicationId: appId,
 largeClassCode: "japan",
 middleClassCode: area,
 checkinDate: checkin,
@@ -571,9 +563,9 @@ if (minPrice) params.set("minCharge", minPrice);
 if (maxPrice) params.set("maxCharge", maxPrice);
 if (subArea) params.set("smallClassCode", subArea);
 
-var url = "https://app.rakuten.co.jp/services/api/Travel/VacantHotelSearch/20170426?" + params.toString();
+var url = WORKER_BASE + "/vacant-hotel-search?" + params.toString();
 
-jsonp(url).then(function (data) {
+fetch(url).then(function (r) { return r.json(); }).then(function (data) {
 searchBtn.disabled = false;
 if (data.error) {
 statusEl.className = "status error";
@@ -628,7 +620,7 @@ resultsSection.style.display = "block";
 }).catch(function (err) {
 searchBtn.disabled = false;
 statusEl.className = "status error";
-statusEl.textContent = "連線失敗，請確認 Application ID 是否正確，或稍後再試。（" + err.message + "）";
+statusEl.textContent = "連線失敗，請稍後再試。（" + err.message + "）";
 });
 });
 })();
