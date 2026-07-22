@@ -4,3 +4,4 @@ compatibility_date = "2026-07-22"
 
 [vars]
 ALLOWED_ORIGIN = "https://jpstay.pages.dev"
+# trigger initial Cloudflare Worker build
