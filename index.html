@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宿場 — 日本住宿比價</title>
+<style>
+:root {
+--washi: #F6F1E7;
+--washi-deep: #EDE5D3;
+--ink: #1E2A32;
+--ink-soft: #4A5A63;
+--aizome: #2B4C6F;
+--aizome-deep: #1B3350;
+--torii: #B23A2E;
+--torii-deep: #8F2C22;
+--gold: #A9803D;
+--line: #D9CEB8;
+--card: #FFFDF8;
+--shadow: 0 6px 24px rgba(30,42,50,0.08);
+--radius: 2px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+margin: 0;
+background: var(--washi);
+color: var(--ink);
+font-family: "Noto Serif TC", "Hiragino Mincho ProN", serif;
+line-height: 1.7;
+}
+
+.sans { font-family: "Noto Sans TC", "Hiragino Sans", sans-serif; }
+
+/* ---------- Seigaiha divider ---------- */
+.seigaiha {
+height: 22px;
+background-image: radial-gradient(circle at 10px 22px, transparent 0 9px, var(--aizome) 9px 10px, transparent 10px);
+background-size: 20px 20px;
+background-position: 0 0;
+opacity: 0.55;
+}
+
+header.hero {
+background: linear-gradient(180deg, var(--aizome-deep) 0%, var(--aizome) 100%);
+color: var(--washi);
+padding: 56px 24px 40px;
+text-align: center;
+position: relative;
+}
+header.hero .eyebrow {
+font-family: "Noto Sans TC", sans-serif;
+letter-spacing: 0.35em;
+font-size: 12px;
+opacity: 0.75;
+margin-bottom: 14px;
+}
+header.hero h1 {
+font-size: 40px;
+margin: 0 0 12px;
+font-weight: 600;
+letter-spacing: 0.06em;
+}
+header.hero p {
+font-family: "Noto Sans TC", sans-serif;
+font-size: 14px;
+opacity: 0.85;
+max-width: 560px;
+margin: 0 auto;
+}
+
+main {
+max-width: 920px;
+margin: 0 auto;
+padding: 40px 20px 80px;
+}
+
+section.panel {
+background: var(--card);
+border: 1px solid var(--line);
+border-radius: var(--radius);
+padding: 28px 26px;
+margin-bottom: 28px;
+box-shadow: var(--shadow);
+}
+
+section.panel h2 {
+font-size: 18px;
+margin: 0 0 6px;
+display: flex;
+align-items: baseline;
+gap: 10px;
+}
+section.panel h2 .num {
+font-family: "Noto Sans TC", sans-serif;
+font-size: 12px;
+color: var(--gold);
+letter-spacing: 0.1em;
+}
+section.panel .desc {
+font-family: "Noto Sans TC", sans-serif;
+font-size: 13px;
+color: var(--ink-soft);
+margin-bottom: 20px;
+}
+
+.field-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+gap: 16px;
+}
+
+label {
+font-family: "Noto Sans TC", sans-serif;
+font-size: 12px;
+color: var(--ink-soft);
+display: block;
+margin-bottom: 6px;
+}
+
+input, select {
+width: 100%;
+padding: 10px 12px;
+border: 1px solid var(--line);
+border-radius: var(--radius);
+background: var(--washi);
+font-family: "Noto Sans TC", sans-serif;
+font-size: 14px;
+color: var(--ink);
+}
+input:focus, select:focus {
+outline: 2px solid var(--aizome);
+outline-offset: 1px;
+}
+
+.btn {
+font-family: "Noto Sans TC", sans-serif;
+font-size: 14px;
+font-weight: 600;
+letter-spacing: 0.04em;
+border: none;
+border-radius: var(--radius);
+padding: 13px 26px;
+cursor: pointer;
+transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-primary {
+background: var(--torii);
+color: #fff;
+}
+.btn-primary:hover { background: var(--torii-deep); transform: translateY(-1px); }
+.btn-primary:disabled { background: #C9B79E; cursor: not-allowed; transform: none; }
+
+.btn-ghost {
+background: transparent;
+border: 1px solid var(--aizome);
+color: var(--aizome);
+}
+.btn-ghost:hover { background: var(--aizome); color: #fff; }
+
+.search-row {
+display: flex;
+justify-content: flex-end;
+margin-top: 20px;
+}
+
+.status {
+font-family: "Noto Sans TC", sans-serif;
+font-size: 13px;
+color: var(--ink-soft);
+margin-top: 14px;
+min-height: 18px;
+}
+.status.error { color: var(--torii-deep); }
+
+.results-head {
+display: flex;
+justify-content: space-between;
+align-items: baseline;
+margin-bottom: 16px;
+font-family: "Noto Sans TC", sans-serif;
+}
+.results-head h2 { font-family: "Noto Serif TC", serif; }
+.results-count { font-size: 12px; color: var(--ink-soft); }
+
+.card-list {
+display: flex;
+flex-direction: column;
+gap: 14px;
+}
+
+.hotel-card {
+background: var(--card);
+border: 1px solid var(--line);
+border-radius: var(--radius);
+display: grid;
+grid-template-columns: 140px 1fr auto;
+gap: 18px;
+padding: 16px;
+position: relative;
+box-shadow: var(--shadow);
+}
+.hotel-card.cheapest { border-color: var(--torii); }
+.hotel-card .stamp {
+position: absolute;
+top: -10px;
+left: 14px;
+background: var(--torii);
+color: #fff;
+font-family: "Noto Sans TC", sans-serif;
+font-size: 11px;
+padding: 3px 10px;
+border-radius: 2px;
+letter-spacing: 0.05em;
+}
+.hotel-card img {
+width: 140px;
+height: 100px;
+object-fit: cover;
+border-radius: var(--radius);
+background: var(--washi-deep);
+}
+.hotel-info h3 {
+margin: 0 0 6px;
+font-size: 16px;
+}
+.hotel-info .addr {
+font-family: "Noto Sans TC", sans-serif;
+font-size: 12px;
+color: var(--ink-soft);
+margin-bottom: 6px;
+}
+.hotel-info .review {
+font-family: "Noto Sans TC", sans-serif;
+font-size: 12px;
+color: var(--gold);
+}
+.hotel-actions {
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: flex-end;
+gap: 8px;
+min-width: 150px;
+}
+.price {
+font-family: "Noto Sans TC", sans-serif;
+font-size: 20px;
+font-weight: 700;
+color: var(--torii);
+}
+.price small {
+font-size: 11px;
+font-weight: 400;
+color: var(--ink-soft);
+}
+.link-row {
+display: flex;
+gap: 8px;
+}
+.link-row a {
+font-family: "Noto Sans TC", sans-serif;
+font-size: 12px;
+text-decoration: none;
+padding: 7px 12px;
+border-radius: var(--radius);
+white-space: nowrap;
+}
+.link-rakuten { background: var(--aizome); color: #fff; }
+.link-rakuten:hover { background: var(--aizome-deep); }
+.link-booking { border: 1px solid var(--ink-soft); color: var(--ink); }
+.link-booking:hover { background: var(--washi-deep); }
+
+footer {
+max-width: 920px;
+margin: 0 auto;
+padding: 0 20px 60px;
+font-family: "Noto Sans TC", sans-serif;
+font-size: 12px;
+color: var(--ink-soft);
+}
+footer .note {
+border-left: 3px solid var(--gold);
+padding: 10px 16px;
+background: var(--washi-deep);
+border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+@media (max-width: 620px) {
+.hotel-card { grid-template-columns: 100px 1fr; }
+.hotel-actions { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+<div class="eyebrow">JAPAN STAY COMPARE — PROTOTYPE</div>
+<h1>宿場</h1>
+<p>輸入日期、地區、預算，即時查詢樂天訂房的真實空房與價格；同時一鍵導向 Booking.com 查看同條件房源，方便交叉比較。</p>
+</header>
+<div class="seigaiha"></div>
+
+<main>
+
+<section class="panel">
+<h2><span class="num">01</span> API 設定</h2>
+<p class="desc">
+本工具直接在你的瀏覽器呼叫樂天官方 API，金鑰只留在這一頁的暫存記憶體中，不會被送到任何第三方伺服器，重新整理頁面即清除。
+免費申請樂天 Application ID：<a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener" class="sans">webservice.rakuten.co.jp</a>（約 10 分鐘）。
+</p>
+<div class="field-grid">
+<div>
+<label for="rakutenAppId">樂天 Application ID（必填）</label>
+<input id="rakutenAppId" type="text" placeholder="1234567890123456789">
+</div>
+<div>
+<label for="rakutenAffId">樂天 Affiliate ID（選填，用於分潤連結）</label>
+<input id="rakutenAffId" type="text" placeholder="1a2b3c4d.5e6f7g8h">
+</div>
+<div>
+<label for="bookingAid">Booking.com Affiliate ID／aid（選填，用於導流連結）</label>
+<input id="bookingAid" type="text" placeholder="你的 aid">
+</div>
+</div>
+</section>
+
+<section class="panel">
+<h2><span class="num">02</span> 搜尋條件</h2>
+<p class="desc">地區清單為日本 47 都道府縣（對應樂天 middleClassCode）。</p>
+<div class="field-grid">
+<div>
+<label for="area">地區</label>
+<select id="area"></select>
+</div>
+<div>
+<label for="checkin">入住日期</label>
+<input id="checkin" type="date">
+</div>
+<div>
+<label for="checkout">退房日期</label>
+<input id="checkout" type="date">
+</div>
+<div>
+<label for="adults">入住人數</label>
+<input id="adults" type="number" min="1" max="8" value="2">
+</div>
+<div>
+<label for="minPrice">最低價（每人/晚，日圓）</label>
+<input id="minPrice" type="number" min="0" step="1000" placeholder="不限">
+</div>
+<div>
+<label for="maxPrice">最高價（每人/晚，日圓）</label>
+<input id="maxPrice" type="number" min="0" step="1000" placeholder="不限">
+</div>
+</div>
+<div class="search-row">
+<button class="btn btn-primary" id="searchBtn" type="button">查詢即時空房</button>
+</div>
+<div class="status" id="status"></div>
+</section>
+
+<section id="resultsSection" style="display:none;">
+<div class="results-head">
+<h2>查詢結果</h2>
+<span class="results-count" id="resultsCount"></span>
+</div>
+<div class="card-list" id="cardList"></div>
+</section>
+
+</main>
+
+<footer>
+<div class="note">
+價格資料即時來自樂天旅行官方 API，僅供參考，實際金額與空房狀況以樂天／Booking.com 結帳頁面為準。
+本工具不會抓取或顯示 Booking.com 的即時房價（避免違反其比價相關使用條款），「查看 Booking.com」按鈕僅導向其官網搜尋結果頁，由你自行比較。
+</div>
+</footer>
+
+<script>
+(function () {
+var PREFS = [
+["hokkaido","北海道"],["aomori","青森"],["iwate","岩手"],["miyagi","宮城"],["akita","秋田"],
+["yamagata","山形"],["fukushima","福島"],["ibaraki","茨城"],["tochigi","栃木"],["gunma","群馬"],
+["saitama","埼玉"],["chiba","千葉"],["tokyo","東京"],["kanagawa","神奈川"],["niigata","新潟"],
+["toyama","富山"],["ishikawa","石川"],["fukui","福井"],["yamanashi","山梨"],["nagano","長野"],
+["gifu","岐阜"],["shizuoka","靜岡"],["aichi","愛知"],["mie","三重"],["shiga","滋賀"],
+["kyoto","京都"],["osaka","大阪"],["hyogo","兵庫"],["nara","奈良"],["wakayama","和歌山"],
+["tottori","鳥取"],["shimane","島根"],["okayama","岡山"],["hiroshima","廣島"],["yamaguchi","山口"],
+["tokushima","德島"],["kagawa","香川"],["ehime","愛媛"],["kochi","高知"],
+["fukuoka","福岡"],["saga","佐賀"],["nagasaki","長崎"],["kumamoto","熊本"],["oita","大分"],
+["miyazaki","宮崎"],["kagoshima","鹿兒島"],["okinawa","沖繩"]
+];
+
+var areaSel = document.getElementById("area");
+PREFS.forEach(function (p) {
+var opt = document.createElement("option");
+opt.value = p[0];
+opt.textContent = p[1];
+areaSel.appendChild(opt);
+});
+areaSel.value = "tokyo";
+
+// default dates: next Friday -> Saturday
+function fmt(d) { return d.toISOString().slice(0,10); }
+var today = new Date();
+var friday = new Date(today);
+friday.setDate(today.getDate() + ((5 - today.getDay() + 7) % 7 || 7));
+var saturday = new Date(friday);
+saturday.setDate(friday.getDate() + 1);
+document.getElementById("checkin").value = fmt(friday);
+document.getElementById("checkout").value = fmt(saturday);
+
+var statusEl = document.getElementById("status");
+var searchBtn = document.getElementById("searchBtn");
+var resultsSection = document.getElementById("resultsSection");
+var cardList = document.getElementById("cardList");
+var resultsCount = document.getElementById("resultsCount");
+
+function jsonp(url) {
+return new Promise(function (resolve, reject) {
+var cbName = "rakutenCb" + Date.now() + Math.floor(Math.random() * 10000);
+var script = document.createElement("script");
+var timeout = setTimeout(function () {
+cleanup();
+reject(new Error("timeout"));
+}, 15000);
+
+function cleanup() {
+clearTimeout(timeout);
+delete window[cbName];
+if (script.parentNode) script.parentNode.removeChild(script);
+}
+
+window[cbName] = function (data) {
+cleanup();
+resolve(data);
+};
+
+script.src = url + "&callback=" + cbName;
+script.onerror = function () {
+cleanup();
+reject(new Error("network"));
+};
+document.body.appendChild(script);
+});
+}
+
+function bookingUrl(hotelName, area, checkin, checkout, adults, aid) {
+var params = new URLSearchParams({
+ss: hotelName || (PREFS.find(function(p){return p[0]===area;}) || [,"Japan"])[1],
+checkin: checkin,
+checkout: checkout,
+group_adults: adults,
+no_rooms: 1
+});
+if (aid) params.set("aid", aid);
+return "https://www.booking.com/searchresults.html?" + params.toString();
+}
+
+searchBtn.addEventListener("click", function () {
+var appId = document.getElementById("rakutenAppId").value.trim();
+var affId = document.getElementById("rakutenAffId").value.trim();
+var bookingAid = document.getElementById("bookingAid").value.trim();
+var area = areaSel.value;
+var checkin = document.getElementById("checkin").value;
+var checkout = document.getElementById("checkout").value;
+var adults = document.getElementById("adults").value || "2";
+var minPrice = document.getElementById("minPrice").value;
+var maxPrice = document.getElementById("maxPrice").value;
+
+statusEl.className = "status";
+resultsSection.style.display = "none";
+
+if (!appId) {
+statusEl.className = "status error";
+statusEl.textContent = "請先填入樂天 Application ID 才能查詢。";
+return;
+}
+if (!checkin || !checkout) {
+statusEl.className = "status error";
+statusEl.textContent = "請選擇入住與退房日期。";
+return;
+}
+
+searchBtn.disabled = true;
+statusEl.textContent = "查詢中…";
+
+var params = new URLSearchParams({
+format: "json",
+applicationId: appId,
+largeClassCode: "japan",
+middleClassCode: area,
+checkinDate: checkin,
+checkoutDate: checkout,
+adultNum: adults,
+hits: 30,
+responseType: "large"
+});
+if (affId) params.set("affiliateId", affId);
+if (minPrice) params.set("minCharge", minPrice);
+if (maxPrice) params.set("maxCharge", maxPrice);
+
+var url = "https://app.rakuten.co.jp/services/api/Travel/VacantHotelSearch/20170426?" + params.toString();
+
+jsonp(url).then(function (data) {
+searchBtn.disabled = false;
+if (data.error) {
+statusEl.className = "status error";
+statusEl.textContent = "查詢失敗：" + (data.error_description || data.error);
+return;
+}
+var hotels = (data.hotels || []).map(function (h) {
+return h.hotel[0].hotelBasicInfo;
+});
+if (!hotels.length) {
+statusEl.textContent = "此條件下沒有查到空房，試試放寬預算或更換日期。";
+return;
+}
+hotels.sort(function (a, b) { return (a.hotelMinCharge || 0) - (b.hotelMinCharge || 0); });
+
+statusEl.textContent = "";
+resultsCount.textContent = hotels.length + " 間符合條件";
+cardList.innerHTML = "";
+
+hotels.forEach(function (h, idx) {
+var card = document.createElement("div");
+card.className = "hotel-card" + (idx === 0 ? " cheapest" : "");
+
+var stamp = idx === 0 ? '<div class="stamp">本次最低價</div>' : "";
+var img = h.hotelImageUrl || h.hotelThumbnailUrl || "";
+var price = h.hotelMinCharge ? ("¥" + h.hotelMinCharge.toLocaleString()) : "洽詢";
+var review = h.reviewAverage ? ("★ " + h.reviewAverage + "（" + (h.reviewCount || 0) + " 則評論）") : "";
+var addr = (h.address1 || "") + (h.address2 || "");
+
+var bUrl = bookingUrl(h.hotelName, area, checkin, checkout, adults, bookingAid);
+
+card.innerHTML =
+stamp +
+'<img src="' + img + '" alt="' + h.hotelName + '" loading="lazy">' +
+'<div class="hotel-info">' +
+'<h3>' + h.hotelName + '</h3>' +
+'<div class="addr">' + addr + '</div>' +
+'<div class="review">' + review + '</div>' +
+'</div>' +
+'<div class="hotel-actions">' +
+'<div class="price">' + price + '<br><small>每人一晚起</small></div>' +
+'<div class="link-row">' +
+'<a class="link-rakuten" href="' + h.hotelInformationUrl + '" target="_blank" rel="noopener">樂天訂房</a>' +
+'<a class="link-booking" href="' + bUrl + '" target="_blank" rel="noopener">查看 Booking</a>' +
+'</div>' +
+'</div>';
+
+cardList.appendChild(card);
+});
+
+resultsSection.style.display = "block";
+}).catch(function (err) {
+searchBtn.disabled = false;
+statusEl.className = "status error";
+statusEl.textContent = "連線失敗，請確認 Application ID 是否正確，或稍後再試。（" + err.message + "）";
+});
+});
+})();
+</script>
+
+</body>
+</html>
