@@ -7,12 +7,14 @@
 *
 * Routes:
 *   GET /vacant-hotel-search   -> proxies Rakuten Travel/VacantHotelSearch/20170426 (JSON)
-*   GET /area-class             -> proxies Rakuten Travel/GetAreaClass/20131024 (JSON)
+*   GET /area-class             -> proxies Rakuten Travel/GetAreaClass/20140210 (JSON)
 *   GET /jalan-area-search      -> proxies Jalan APICommon/AreaSearch/V1 (XML)
 *   GET /jalan-vacant-search    -> proxies Jalan APIAdvance/StockSearch/V1 (XML)
-*   GET /debug-secrets          -> TEMPORARY diagnostic route, returns only length + short
-*                                   prefix of RAKUTEN_APP_ID / RAKUTEN_ACCESS_KEY (never the
-*                                   full secret). Remove once the applicationId bug is fixed.
+*
+* NOTE: Rakuten migrated the Travel API to the openapi.rakuten.co.jp/engine/api
+* domain (the legacy app.rakuten.co.jp/services/api domain no longer recognizes
+* newly issued applicationId values, which caused a persistent "specify valid
+* applicationId" error even with correct credentials).
 *
 * Required secrets (set via Cloudflare dashboard, Settings > Variables and Secrets):
 *   RAKUTEN_APP_ID
@@ -24,115 +26,96 @@
 */
 
 const RAKUTEN_ENDPOINTS = {
-      "/vacant-hotel-search": "https://app.rakuten.co.jp/services/api/Travel/VacantHotelSearch/20170426",
-      "/area-class": "https://app.rakuten.co.jp/services/api/Travel/GetAreaClass/20131024",
+        "/vacant-hotel-search": "https://openapi.rakuten.co.jp/engine/api/Travel/VacantHotelSearch/20170426",
+        "/area-class": "https://openapi.rakuten.co.jp/engine/api/Travel/GetAreaClass/20140210",
 };
 
 const JALAN_ENDPOINTS = {
-      "/jalan-area-search": "http://jws.jalan.net/APICommon/AreaSearch/V1/",
-      "/jalan-vacant-search": "http://jws.jalan.net/APIAdvance/StockSearch/V1/",
+        "/jalan-area-search": "http://jws.jalan.net/APICommon/AreaSearch/V1/",
+        "/jalan-vacant-search": "http://jws.jalan.net/APIAdvance/StockSearch/V1/",
 };
 
 function corsHeaders(env) {
-      const origin = env.ALLOWED_ORIGIN || "https://jpstay.pages.dev";
-      return {
-              "Access-Control-Allow-Origin": origin,
-              "Access-Control-Allow-Methods": "GET, OPTIONS",
-              "Access-Control-Allow-Headers": "Content-Type",
-              "Vary": "Origin",
-      };
+        const origin = env.ALLOWED_ORIGIN || "https://jpstay.pages.dev";
+        return {
+                  "Access-Control-Allow-Origin": origin,
+                  "Access-Control-Allow-Methods": "GET, OPTIONS",
+                  "Access-Control-Allow-Headers": "Content-Type",
+                  "Vary": "Origin",
+        };
 }
 
 function jsonError(error, message, status, headers) {
-      return new Response(JSON.stringify({ error, message }), {
-              status,
-              headers: { "Content-Type": "application/json", ...headers },
-      });
-}
-
-function handleDebugSecrets(env, headers) {
-      const appId = env.RAKUTEN_APP_ID || "";
-      const accessKey = env.RAKUTEN_ACCESS_KEY || "";
-      return new Response(
-              JSON.stringify({
-                        RAKUTEN_APP_ID_length: appId.length,
-                        RAKUTEN_APP_ID_prefix: appId.slice(0, 8),
-                        RAKUTEN_APP_ID_suffix: appId.slice(-4),
-                        RAKUTEN_ACCESS_KEY_length: accessKey.length,
-                        RAKUTEN_ACCESS_KEY_prefix: accessKey.slice(0, 6),
-              }),
-          { status: 200, headers: { "Content-Type": "application/json", ...headers } }
-            );
+        return new Response(JSON.stringify({ error, message }), {
+                  status,
+                  headers: { "Content-Type": "application/json", ...headers },
+        });
 }
 
 async function cachedFetch(targetUrl, headers, ctx, contentType) {
-      const cache = caches.default;
-      const cacheKey = new Request(targetUrl.toString(), { method: "GET" });
-      let response = await cache.match(cacheKey);
-      if (response) {
-              response = new Response(response.body, response);
-              for (const [k, v] of Object.entries(headers)) response.headers.set(k, v);
-              return response;
-      }
-      const apiResp = await fetch(targetUrl.toString());
-      const body = await apiResp.text();
-      response = new Response(body, {
-              status: apiResp.status,
-              headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=900", ...headers },
-      });
-      if (apiResp.ok) ctx.waitUntil(cache.put(cacheKey, response.clone()));
-      return response;
+        const cache = caches.default;
+        const cacheKey = new Request(targetUrl.toString(), { method: "GET" });
+        let response = await cache.match(cacheKey);
+        if (response) {
+                  response = new Response(response.body, response);
+                  for (const [k, v] of Object.entries(headers)) response.headers.set(k, v);
+                  return response;
+        }
+        const apiResp = await fetch(targetUrl.toString());
+        const body = await apiResp.text();
+        response = new Response(body, {
+                  status: apiResp.status,
+                  headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=900", ...headers },
+        });
+        if (apiResp.ok) ctx.waitUntil(cache.put(cacheKey, response.clone()));
+        return response;
 }
 
 async function handleRakuten(pathname, url, env, headers, ctx) {
-      if (!env.RAKUTEN_APP_ID) {
-              return jsonError("server_misconfigured", "RAKUTEN_APP_ID secret is not set.", 500, headers);
-      }
-      if (!env.RAKUTEN_ACCESS_KEY) {
-              return jsonError("server_misconfigured", "RAKUTEN_ACCESS_KEY secret is not set.", 500, headers);
-      }
-      const targetUrl = new URL(RAKUTEN_ENDPOINTS[pathname]);
-      for (const [key, value] of url.searchParams.entries()) {
-              if (key === "applicationId" || key === "accessKey" || key === "format" || key === "callback") continue;
-              targetUrl.searchParams.set(key, value);
-      }
-      targetUrl.searchParams.set("format", "json");
-      targetUrl.searchParams.set("applicationId", env.RAKUTEN_APP_ID);
-      targetUrl.searchParams.set("accessKey", env.RAKUTEN_ACCESS_KEY);
-      return cachedFetch(targetUrl, headers, ctx, "application/json");
+        if (!env.RAKUTEN_APP_ID) {
+                  return jsonError("server_misconfigured", "RAKUTEN_APP_ID secret is not set.", 500, headers);
+        }
+        if (!env.RAKUTEN_ACCESS_KEY) {
+                  return jsonError("server_misconfigured", "RAKUTEN_ACCESS_KEY secret is not set.", 500, headers);
+        }
+        const targetUrl = new URL(RAKUTEN_ENDPOINTS[pathname]);
+        for (const [key, value] of url.searchParams.entries()) {
+                  if (key === "applicationId" || key === "accessKey" || key === "format" || key === "callback") continue;
+                  targetUrl.searchParams.set(key, value);
+        }
+        targetUrl.searchParams.set("format", "json");
+        targetUrl.searchParams.set("applicationId", env.RAKUTEN_APP_ID);
+        targetUrl.searchParams.set("accessKey", env.RAKUTEN_ACCESS_KEY);
+        return cachedFetch(targetUrl, headers, ctx, "application/json");
 }
 
 async function handleJalan(pathname, url, env, headers, ctx) {
-      if (!env.JALAN_API_KEY) {
-              return jsonError("server_misconfigured", "JALAN_API_KEY secret is not set.", 500, headers);
-      }
-      const targetUrl = new URL(JALAN_ENDPOINTS[pathname]);
-      for (const [key, value] of url.searchParams.entries()) {
-              if (key === "key") continue;
-              targetUrl.searchParams.set(key, value);
-      }
-      targetUrl.searchParams.set("key", env.JALAN_API_KEY);
-      return cachedFetch(targetUrl, headers, ctx, "text/xml; charset=UTF-8");
+        if (!env.JALAN_API_KEY) {
+                  return jsonError("server_misconfigured", "JALAN_API_KEY secret is not set.", 500, headers);
+        }
+        const targetUrl = new URL(JALAN_ENDPOINTS[pathname]);
+        for (const [key, value] of url.searchParams.entries()) {
+                  if (key === "key") continue;
+                  targetUrl.searchParams.set(key, value);
+        }
+        targetUrl.searchParams.set("key", env.JALAN_API_KEY);
+        return cachedFetch(targetUrl, headers, ctx, "text/xml; charset=UTF-8");
 }
 
 export default {
-      async fetch(request, env, ctx) {
-              const headers = corsHeaders(env);
-              if (request.method === "OPTIONS") return new Response(null, { headers });
+        async fetch(request, env, ctx) {
+                  const headers = corsHeaders(env);
+                  if (request.method === "OPTIONS") return new Response(null, { headers });
 
-        const url = new URL(request.url);
-              const pathname = url.pathname;
+          const url = new URL(request.url);
+                  const pathname = url.pathname;
 
-        if (pathname === "/debug-secrets") {
-                  return handleDebugSecrets(env, headers);
-        }
-
-        if (RAKUTEN_ENDPOINTS[pathname]) {
-                  return handleRakuten(pathname, url, env, headers, ctx);
-        }
-              if (JALAN_ENDPOINTS[pathname]) {
-                        return handleJalan(pathname, url, env, headers, ctx);
-              }
-              return jsonError("not_found", "Unknown route.", 404, headers);
-      },
+          if (RAKUTEN_ENDPOINTS[pathname]) {
+                      return handleRakuten(pathname, url, env, headers, ctx);
+          }
+                  if (JALAN_ENDPOINTS[pathname]) {
+                              return handleJalan(pathname, url, env, headers, ctx);
+                  }
+                  return jsonError("not_found", "Unknown route.", 404, headers);
+        },
 };
