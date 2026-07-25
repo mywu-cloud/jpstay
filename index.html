@@ -299,6 +299,10 @@ details.panel summary::before { content: "\25B8  "; color: var(--gold); }
 details.panel[open] summary::before { content: "\25BE  "; }
 details.panel[open] summary { margin-bottom: 16px; }
 details.panel .desc { margin-top: 4px; }
+  .area-suggestions { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--line); border-top: none; max-height: 240px; overflow-y: auto; z-index: 10; box-shadow: var(--shadow); }
+  .area-suggestions.open { display: block; }
+  .area-suggestions div { padding: 8px 12px; font-family: "Helvetica Neue", "Noto Sans TC", sans-serif; font-size: 14px; cursor: pointer; }
+  .area-suggestions div:hover { background: var(--washi-deep); }
 </style>
 </head>
 <body>
@@ -313,11 +317,12 @@ details.panel .desc { margin-top: 4px; }
 <main>
 
 <section class="panel">
-<p class="desc">地區清單為日本 47 都道府縣。搜尋是以該都道府縣主要城市座標為中心、半徑 3 公里範圍內的即時空房（樂天地區代碼查詢目前異常，故改以座標範圍搜尋，僅涵蓋主要城市周邊，非整個都道府縣）。</p>
+<p class="desc">輸入地名或車站關鍵字（如：上野、京都、心齋橋），從建議清單中選擇地區，即可查詢該區域的即時空房。地區資料來自樂天旅行官方地區代碼，涵蓋範圍以樂天分區為準，非單一車站等級的精準定位。</p>
 <div class="field-grid">
-<div>
-<label for="area">地區</label>
-<select id="area"></select>
+<div style="position:relative;">
+  <label for="areaInput">地區／車站</label>
+  <input id="areaInput" type="text" placeholder="輸入地名或車站，如：上野、京都、心齋橋" autocomplete="off">
+  <div id="areaSuggestions" class="area-suggestions"></div>
 </div>
 <div>
 <label for="checkin">入住日期</label>
@@ -328,9 +333,17 @@ details.panel .desc { margin-top: 4px; }
 <input id="checkout" type="date">
 </div>
 <div>
-<label for="adults">入住人數</label>
-<input id="adults" type="number" min="1" max="8" value="2">
+  <label for="rooms">房間數</label>
+  <input id="rooms" type="number" min="1" max="10" value="1">
 </div>
+  <div>
+    <label for="adults">成人人數</label>
+    <input id="adults" type="number" min="1" max="10" value="2">
+  </div>
+  <div>
+    <label for="children">孩童人數</label>
+    <input id="children" type="number" min="0" max="10" value="0">
+  </div>
 <div>
 <label for="minPrice">最低價（每人/晚，日圓）</label>
 <input id="minPrice" type="number" min="0" step="1000" placeholder="不限">
@@ -345,7 +358,31 @@ details.panel .desc { margin-top: 4px; }
 </div>
 <div class="status" id="status"></div>
 </section>
-
+  <details class="panel" id="advancedFilters">
+    <summary>進階篩選條件（選填）</summary>
+  <p class="desc">以下條件會直接送給樂天旅行 API 做真正的篩選；星等門檻是查詢結果回來後，於瀏覽器端依平均星等再過濾（樂天公開 API 不支援用星等或「可免費取消」做查詢條件，取消政策目前無法比照樂天官網篩選）。</p>
+  <div class="field-grid">
+  <div>
+    <label for="minStar">最低星等評價</label>
+    <select id="minStar">
+      <option value="">不限</option>
+      <option value="3">★3.0 以上</option>
+      <option value="3.5">★3.5 以上</option>
+      <option value="4">★4.0 以上</option>
+      <option value="4.5">★4.5 以上</option>
+    </select>
+  </div>
+  </div>
+    <div class="field-grid" style="margin-top:16px;">
+      <label class="sans"><input type="checkbox" id="sqKinen" style="width:auto;display:inline-block;margin-right:6px;">禁菸房</label>
+      <label class="sans"><input type="checkbox" id="sqInternet" style="width:auto;display:inline-block;margin-right:6px;">可上網</label>
+      <label class="sans"><input type="checkbox" id="sqDaiyoku" style="width:auto;display:inline-block;margin-right:6px;">大浴場</label>
+      <label class="sans"><input type="checkbox" id="sqOnsen" style="width:auto;display:inline-block;margin-right:6px;">溫泉</label>
+      <label class="sans"><input type="checkbox" id="sqBreakfast" style="width:auto;display:inline-block;margin-right:6px;">含早餐</label>
+      <label class="sans"><input type="checkbox" id="sqDinner" style="width:auto;display:inline-block;margin-right:6px;">含晚餐</label>
+    </div>
+  </details>
+  
 <section id="resultsSection" style="display:none;">
 <div class="results-head">
 <h2>查詢結果</h2>
@@ -365,36 +402,72 @@ details.panel .desc { margin-top: 4px; }
 
 <script>
 (function () {
-var PREFS = [
-  ["hokkaido","北海道",43.0642,141.3469],["aomori","青森",40.8244,140.7400],["iwate","岩手",39.7036,141.1527],
-  ["miyagi","宮城",38.2682,140.8694],["akita","秋田",39.7186,140.1024],["yamagata","山形",38.2404,140.3633],
-  ["fukushima","福島",37.7503,140.4676],["ibaraki","茨城",36.3418,140.4468],["tochigi","栃木",36.5658,139.8836],
-  ["gunma","群馬",36.3906,139.0604],["saitama","埼玉",35.8617,139.6455],["chiba","千葉",35.6073,140.1063],
-  ["tokyo","東京",35.6895,139.6917],["kanagawa","神奈川",35.4437,139.6380],["niigata","新潟",37.9161,139.0364],
-  ["toyama","富山",36.6953,137.2113],["ishikawa","石川",36.5947,136.6256],["fukui","福井",36.0652,136.2216],
-  ["yamanashi","山梨",35.6642,138.5685],["nagano","長野",36.6513,138.1810],["gifu","岐阜",35.3912,136.7223],
-  ["shizuoka","靜岡",34.9769,138.3831],["aichi","愛知",35.1815,136.9066],["mie","三重",34.7303,136.5086],
-  ["shiga","滋賀",35.0045,135.8686],["kyoto","京都",35.0116,135.7681],["osaka","大阪",34.6937,135.5023],
-  ["hyogo","兵庫",34.6901,135.1955],["nara","奈良",34.6851,135.8048],["wakayama","和歌山",34.2261,135.1675],
-  ["tottori","鳥取",35.5039,134.2378],["shimane","島根",35.4723,133.0505],["okayama","岡山",34.6551,133.9195],
-  ["hiroshima","廣島",34.3853,132.4553],["yamaguchi","山口",34.1859,131.4714],["tokushima","德島",34.0658,134.5593],
-  ["kagawa","香川",34.3401,134.0434],["ehime","愛媛",33.8416,132.7657],["kochi","高知",33.5597,133.5311],
-  ["fukuoka","福岡",33.5904,130.4017],["saga","佐賀",33.2494,130.2988],["nagasaki","長崎",32.7448,129.8737],
-  ["kumamoto","熊本",32.7898,130.7417],["oita","大分",33.2382,131.6126],["miyazaki","宮崎",31.9077,131.4202],
-  ["kagoshima","鹿兒島",31.5602,130.5581],["okinawa","沖繩",26.2124,127.6809]
-  ];
-
-var areaSel = document.getElementById("area");
-PREFS.forEach(function (p) {
-var opt = document.createElement("option");
-opt.value = p[0];
-opt.textContent = p[1];
-areaSel.appendChild(opt);
-});
-areaSel.value = "tokyo";
+var AREA_LEAFS = [];
+  var selectedArea = null;
+  var areaInput = document.getElementById("areaInput");
+  var areaSuggestions = document.getElementById("areaSuggestions");
+  function flattenAreaClasses(data) {
+    var leafs = [];
+    var largeClasses = (data.areaClasses && data.areaClasses.largeClasses) || [];
+    largeClasses.forEach(function (large) {
+      (large.middleClasses || []).forEach(function (middle) {
+        (middle.smallClasses || []).forEach(function (small) {
+          if (small.detailClasses && small.detailClasses.length) {
+            small.detailClasses.forEach(function (detail) {
+              leafs.push({
+                label: detail.detailClassName + "（" + small.smallClassName + "・" + middle.middleClassName + "）",
+                largeClassCode: large.largeClassCode,
+                middleClassCode: middle.middleClassCode,
+                smallClassCode: small.smallClassCode,
+                detailClassCode: detail.detailClassCode
+              });
+            });
+          } else {
+            leafs.push({
+              label: small.smallClassName + "（" + middle.middleClassName + "）",
+              largeClassCode: large.largeClassCode,
+              middleClassCode: middle.middleClassCode,
+              smallClassCode: small.smallClassCode,
+              detailClassCode: null
+            });
+          }
+        });
+      });
+    });
+    return leafs;
+  }
+  function selectArea(leaf) {
+    selectedArea = leaf;
+    areaInput.value = leaf.label;
+    areaSuggestions.classList.remove("open");
+    areaSuggestions.innerHTML = "";
+  }
+  function renderSuggestions(query) {
+    if (!query) { areaSuggestions.classList.remove("open"); areaSuggestions.innerHTML = ""; return; }
+    var matches = AREA_LEAFS.filter(function (l) { return l.label.indexOf(query) !== -1; }).slice(0, 8);
+    if (!matches.length) { areaSuggestions.classList.remove("open"); areaSuggestions.innerHTML = ""; return; }
+    areaSuggestions.innerHTML = "";
+    matches.forEach(function (leaf) {
+      var item = document.createElement("div");
+      item.textContent = leaf.label;
+      item.addEventListener("mousedown", function (e) { e.preventDefault(); selectArea(leaf); });
+      areaSuggestions.appendChild(item);
+    });
+    areaSuggestions.classList.add("open");
+  }
+  areaInput.addEventListener("input", function () { selectedArea = null; renderSuggestions(areaInput.value.trim()); });
+  areaInput.addEventListener("blur", function () { areaSuggestions.classList.remove("open"); });
+  
 
 
 var WORKER_BASE = "https://jpstay-api.tw-mywu.workers.dev";
+
+  fetch(WORKER_BASE + "/area-class?formatVersion=2").then(function (r) { return r.json(); }).then(function (data) {
+    AREA_LEAFS = flattenAreaClasses(data);
+    var defaultLeaf = AREA_LEAFS.find(function (l) { return l.middleClassCode === "tokyo" && l.detailClassCode === "A"; });
+    if (defaultLeaf) selectArea(defaultLeaf);
+  }).catch(function () {});
+  
 
 // default dates: next Friday -> Saturday
 function fmt(d) { return d.toISOString().slice(0,10); }
@@ -412,56 +485,38 @@ var resultsSection = document.getElementById("resultsSection");
 var cardList = document.getElementById("cardList");
 var resultsCount = document.getElementById("resultsCount");
 
-function jsonp(url) {
-return new Promise(function (resolve, reject) {
-var cbName = "rakutenCb" + Date.now() + Math.floor(Math.random() * 10000);
-var script = document.createElement("script");
-var timeout = setTimeout(function () {
-cleanup();
-reject(new Error("timeout"));
-}, 15000);
 
-function cleanup() {
-clearTimeout(timeout);
-delete window[cbName];
-if (script.parentNode) script.parentNode.removeChild(script);
-}
 
-window[cbName] = function (data) {
-cleanup();
-resolve(data);
-};
-
-script.src = url + "&callback=" + cbName;
-script.onerror = function () {
-cleanup();
-reject(new Error("network"));
-};
-document.body.appendChild(script);
-});
-}
-
-function bookingUrl(hotelName, area, checkin, checkout, adults, aid) {
-var params = new URLSearchParams({
-ss: hotelName || (PREFS.find(function(p){return p[0]===area;}) || [,"Japan"])[1],
-checkin: checkin,
-checkout: checkout,
-group_adults: adults,
-no_rooms: 1
-});
-if (aid) params.set("aid", aid);
-return "https://www.booking.com/searchresults.html?" + params.toString();
+function bookingUrl(hotelName, areaLabel, checkin, checkout, adults, aid) {
+  var params = new URLSearchParams({
+    ss: hotelName || areaLabel || "Japan",
+    checkin: checkin,
+    checkout: checkout,
+    group_adults: adults,
+    no_rooms: 1
+  });
+  if (aid) params.set("aid", aid);
+  return "https://www.booking.com/searchresults.html?" + params.toString();
 }
 
 searchBtn.addEventListener("click", function () {
-  var affId = "";
+var affId = "";
   var bookingAid = "";
-var area = areaSel.value;
-var checkin = document.getElementById("checkin").value;
-var checkout = document.getElementById("checkout").value;
-var adults = document.getElementById("adults").value || "2";
-var minPrice = document.getElementById("minPrice").value;
-var maxPrice = document.getElementById("maxPrice").value;
+  var rooms = document.getElementById("rooms").value || "1";
+  var adults = document.getElementById("adults").value || "2";
+  var children = document.getElementById("children").value || "0";
+  var checkin = document.getElementById("checkin").value;
+  var checkout = document.getElementById("checkout").value;
+  var minPrice = document.getElementById("minPrice").value;
+  var maxPrice = document.getElementById("maxPrice").value;
+  var minStar = document.getElementById("minStar").value;
+  var squeeze = [];
+  if (document.getElementById("sqKinen").checked) squeeze.push("kinen");
+  if (document.getElementById("sqInternet").checked) squeeze.push("internet");
+  if (document.getElementById("sqDaiyoku").checked) squeeze.push("daiyoku");
+  if (document.getElementById("sqOnsen").checked) squeeze.push("onsen");
+  if (document.getElementById("sqBreakfast").checked) squeeze.push("breakfast");
+  if (document.getElementById("sqDinner").checked) squeeze.push("dinner");
 
 statusEl.className = "status";
 resultsSection.style.display = "none";
@@ -472,24 +527,29 @@ statusEl.textContent = "請選擇入住與退房日期。";
 return;
 }
 
+  if (!selectedArea) {
+    statusEl.className = "status error";
+    statusEl.textContent = "請從建議清單中選擇地區。";
+    return;
+  }
+
 searchBtn.disabled = true;
 statusEl.textContent = "查詢中…";
 
-var pref = PREFS.find(function (p) { return p[0] === area; });
-  var lat = pref ? pref[2] : 35.6895;
-  var lng = pref ? pref[3] : 139.6917;
-
-  var params = new URLSearchParams({
-    latitude: lat,
-    longitude: lng,
-    searchRadius: 3.0,
-    datumType: 1,
-    checkinDate: checkin,
-    checkoutDate: checkout,
-    adultNum: adults,
-    hits: 30,
-    responseType: "large"
-  });
+var params = new URLSearchParams({
+  checkinDate: checkin,
+  checkoutDate: checkout,
+  roomNum: rooms,
+  adultNum: adults,
+  hits: 30,
+  responseType: "large"
+});
+  params.set("largeClassCode", selectedArea.largeClassCode);
+  params.set("middleClassCode", selectedArea.middleClassCode);
+  params.set("smallClassCode", selectedArea.smallClassCode);
+  if (selectedArea.detailClassCode) params.set("detailClassCode", selectedArea.detailClassCode);
+  if (squeeze.length) params.set("squeezeCondition", squeeze.join(","));
+  if (Number(children) > 0) params.set("upClassNum", children);
   if (affId) params.set("affiliateId", affId);
   if (minPrice) params.set("minCharge", minPrice);
   if (maxPrice) params.set("maxCharge", maxPrice);
@@ -505,6 +565,9 @@ return;
 var hotels = (data.hotels || []).map(function (h) {
 return h.hotel[0].hotelBasicInfo;
 });
+  if (minStar) {
+    hotels = hotels.filter(function (h) { return (h.reviewAverage || 0) >= Number(minStar); });
+  }
 if (!hotels.length) {
 statusEl.textContent = "此條件下沒有查到空房，試試放寬預算或更換日期。";
 return;
@@ -525,7 +588,7 @@ var price = h.hotelMinCharge ? ("¥" + h.hotelMinCharge.toLocaleString()) : "洽
 var review = h.reviewAverage ? ("★ " + h.reviewAverage + "（" + (h.reviewCount || 0) + " 則評論）") : "";
 var addr = (h.address1 || "") + (h.address2 || "");
 
-var bUrl = bookingUrl(h.hotelName, area, checkin, checkout, adults, bookingAid);
+var bUrl = bookingUrl(h.hotelName, (selectedArea ? selectedArea.label : ""), checkin, checkout, adults, bookingAid);
 
 card.innerHTML =
 stamp +
