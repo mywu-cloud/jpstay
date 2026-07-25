@@ -563,7 +563,7 @@ statusEl.textContent = "查詢失敗：" + (data.error_description || data.error
 return;
 }
 var hotels = (data.hotels || []).map(function (h) {
-return h.hotel[0].hotelBasicInfo;
+var basic = h.hotel[0].hotelBasicInfo; var roomBlock = h.hotel.find(function (b) { return b.roomInfo; }); var reserveUrl = null; if (roomBlock && roomBlock.roomInfo && roomBlock.roomInfo[0] && roomBlock.roomInfo[0].roomBasicInfo) { reserveUrl = roomBlock.roomInfo[0].roomBasicInfo.reserveUrl; } basic._reserveUrl = reserveUrl; return basic;
 });
   if (minStar) {
     hotels = hotels.filter(function (h) { return (h.reviewAverage || 0) >= Number(minStar); });
@@ -601,7 +601,7 @@ stamp +
 '<div class="hotel-actions">' +
 '<div class="price">' + price + '<br><small>每人一晚起</small></div>' +
 '<div class="link-row">' +
-'<a class="link-rakuten" href="' + h.hotelInformationUrl + '" target="_blank" rel="noopener">樂天訂房</a>' +
+'<a class="link-rakuten" href="' + (h._reserveUrl || h.hotelInformationUrl) + '" target="_blank" rel="noopener">樂天訂房</a>' +
 '<a class="link-booking" href="' + bUrl + '" target="_blank" rel="noopener">查看 Booking</a>' +
 '</div>' +
 '</div>';
