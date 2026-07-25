@@ -487,15 +487,15 @@ var resultsCount = document.getElementById("resultsCount");
 
 
 
-function bookingUrl(hotelName, areaLabel, checkin, checkout, adults, aid) {
+function bookingUrl(hotelName, areaLabel, checkin, checkout, adults, rooms, children, aid) {
   var params = new URLSearchParams({
     ss: hotelName || areaLabel || "Japan",
     checkin: checkin,
     checkout: checkout,
     group_adults: adults,
-    no_rooms: 1
+    no_rooms: rooms
   });
-  if (aid) params.set("aid", aid);
+  if (aid) params.set("aid", aid); if (Number(children) > 0) params.set("group_children", children);
   return "https://www.booking.com/searchresults.html?" + params.toString();
 }
 
@@ -588,7 +588,7 @@ var price = h.hotelMinCharge ? ("¥" + h.hotelMinCharge.toLocaleString()) : "洽
 var review = h.reviewAverage ? ("★ " + h.reviewAverage + "（" + (h.reviewCount || 0) + " 則評論）") : "";
 var addr = (h.address1 || "") + (h.address2 || "");
 
-var bUrl = bookingUrl(h.hotelName, (selectedArea ? selectedArea.label : ""), checkin, checkout, adults, bookingAid);
+var bUrl = bookingUrl(h.hotelName, (selectedArea ? selectedArea.label : ""), checkin, checkout, adults, rooms, children, bookingAid);
 
 card.innerHTML =
 stamp +
