@@ -299,15 +299,6 @@ details.panel summary::before { content: "\25B8  "; color: var(--gold); }
 details.panel[open] summary::before { content: "\25BE  "; }
 details.panel[open] summary { margin-bottom: 16px; }
 details.panel .desc { margin-top: 4px; }
-
-.footer-settings { margin-top: 16px; font-size: 13px; background: none; border: none; box-shadow: none; padding: 0; }
-.footer-settings summary { cursor: pointer; color: var(--ink-soft); font-size: 13px; font-weight: 600; list-style: none; }
-.footer-settings summary::-webkit-details-marker { display: none; }
-.footer-settings summary::before { content: "\25B8  "; color: var(--gold); }
-.footer-settings[open] summary::before { content: "\25BE  "; }
-.footer-settings[open] summary { margin-bottom: 12px; }
-.footer-settings .desc { margin: 8px 0 12px; font-size: 13px; }
-.footer-settings input { font-size: 13px; }
 </style>
 </head>
 <body>
@@ -370,23 +361,6 @@ details.panel .desc { margin-top: 4px; }
 價格資料即時來自樂天旅行官方 API，僅供參考，實際金額與空房狀況以樂天／Booking.com 結帳頁面為準。
 本工具不會抓取或顯示 Booking.com 的即時房價（避免違反其比價相關使用條款），「查看 Booking.com」按鈕僅導向其官網搜尋結果頁，由你自行比較。
 </div>
-
-<details class="footer-settings">
-<summary>進階設定（選填）</summary>
-<p class="desc">
-樂天 API 金鑰已改為透過 Cloudflare Worker 代理呼叫與快取，不需要在此輸入，也不會出現在瀏覽器裡。以下為選填的個人化參數。
-</p>
-<div class="field-grid">
-<div>
-<label for="rakutenAffId">樂天 Affiliate ID（選填，用於分潤連結）</label>
-<input id="rakutenAffId" type="text" placeholder="1a2b3c4d.5e6f7g8h">
-</div>
-<div>
-<label for="bookingAid">Booking.com Affiliate ID／aid（選填，用於導流連結）</label>
-<input id="bookingAid" type="text" placeholder="你的 aid">
-</div>
-</div>
-</details>
 </footer>
 
 <script>
@@ -480,8 +454,8 @@ return "https://www.booking.com/searchresults.html?" + params.toString();
 }
 
 searchBtn.addEventListener("click", function () {
-var affId = document.getElementById("rakutenAffId").value.trim();
-var bookingAid = document.getElementById("bookingAid").value.trim();
+  var affId = "";
+  var bookingAid = "";
 var area = areaSel.value;
 var checkin = document.getElementById("checkin").value;
 var checkout = document.getElementById("checkout").value;
